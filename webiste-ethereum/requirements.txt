@@ -1,0 +1,1 @@
+fastapi uvicorn joblib pandas scikit-learn;
