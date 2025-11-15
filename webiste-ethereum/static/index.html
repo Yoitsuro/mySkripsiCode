@@ -1,208 +1,144 @@
-<!DOCTYPE html>
-<html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Forecast Harga Ethereum - TCN-LGBM</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-      body {
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        max-width: 960px;
-        margin: 20px auto;
-        padding: 0 16px;
-        background: #111827;
-        color: #e5e7eb;
-      }
-      .card {
-        background: #1f2937;
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-      }
-      h1,
-      h2 {
-        margin-top: 0;
-      }
-      .metrics {
-        display: flex;
-        gap: 16px;
-        flex-wrap: wrap;
-      }
-      .metric-box {
-        background: #111827;
-        border-radius: 12px;
-        padding: 12px 16px;
-        min-width: 120px;
-        text-align: center;
-        border: 1px solid #374151;
-      }
-      .metric-label {
-        font-size: 0.8rem;
-        color: #9ca3af;
-      }
-      .metric-value {
-        font-size: 1.2rem;
-        font-weight: 600;
-        margin-top: 4px;
-      }
-      .controls {
-        margin-bottom: 12px;
-      }
-      select {
-        background: #111827;
-        color: #e5e7eb;
-        border-radius: 8px;
-        padding: 4px 8px;
-        border: 1px solid #374151;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h1>Forecast Harga Ethereum</h1>
-      <p>Model: TCN-LGBM (.pkl) — menampilkan hasil forecasting & akurasi.</p>
-    </div>
+<body>
+  <div class="card">
+    <h1>Forecast Harga Ethereum</h1>
+    <p>
+      Model: TCN-LGBM (Stacking) — menampilkan forecast 1, 5, dan 30 jam ke
+      depan.
+    </p>
+  </div>
 
-    <div class="card">
-      <div class="controls">
-        <label for="horizon">Horizon (jumlah titik data terakhir): </label>
-        <select id="horizon">
-          <option value="30">30</option>
-          <option value="50" selected>50</option>
-          <option value="100">100</option>
-        </select>
+  <div class="card">
+    <h2>Forecast ke Depan</h2>
+    <p>
+      Prediksi harga <strong>close</strong> ETH/USDT berdasarkan data historis
+      terakhir.
+    </p>
+    <div class="metrics">
+      <div class="metric-box">
+        <div class="metric-label">+1 Jam</div>
+        <div class="metric-value" id="pred-1h">-</div>
+        <div class="metric-label" id="steps-1h"></div>
       </div>
-      <canvas id="forecastChart" height="120"></canvas>
-    </div>
-
-    <div class="card">
-      <h2>Akurasinya</h2>
-      <div class="metrics">
-        <div class="metric-box">
-          <div class="metric-label">MAE</div>
-          <div class="metric-value" id="mae">-</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">RMSE</div>
-          <div class="metric-value" id="rmse">-</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">MAPE (%)</div>
-          <div class="metric-value" id="mape">-</div>
-        </div>
+      <div class="metric-box">
+        <div class="metric-label">+5 Jam</div>
+        <div class="metric-value" id="pred-5h">-</div>
+        <div class="metric-label" id="steps-5h"></div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">+30 Jam</div>
+        <div class="metric-value" id="pred-30h">-</div>
+        <div class="metric-label" id="steps-30h"></div>
       </div>
     </div>
+  </div>
 
-    <script>
-      const API_BASE = "http://localhost:8000"; // sesuaikan kalau beda host/port
+  <div class="card">
+    <h2>Akurasinya (Split A - Test)</h2>
+    <div class="metrics">
+      <div class="metric-box">
+        <div class="metric-label">MAE</div>
+        <div class="metric-value" id="mae">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">RMSE</div>
+        <div class="metric-value" id="rmse">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">MAPE (%)</div>
+        <div class="metric-value" id="mape">-</div>
+      </div>
+    </div>
+  </div>
 
-      const ctx = document.getElementById("forecastChart").getContext("2d");
-      let forecastChart = null;
+  <!-- script Chart.js boleh kamu hapus kalau belum perlu grafik -->
 
-      async function fetchForecast(horizon = 50) {
-        const res = await fetch(`${API_BASE}/forecast?horizon=${horizon}`);
+  <script>
+    // helper error
+    function showError(msg) {
+      let box = document.getElementById("error-box");
+      if (!box) {
+        box = document.createElement("div");
+        box.id = "error-box";
+        box.style.marginTop = "8px";
+        box.style.color = "#fca5a5";
+        box.style.fontSize = "0.85rem";
+        document.body.prepend(box);
+      }
+      box.textContent = "Error: " + msg;
+      console.error(msg);
+    }
+
+    async function fetchForecastHours() {
+      try {
+        const res = await fetch("/forecast_hours");
         if (!res.ok) {
-          console.error("Gagal fetch /forecast");
+          showError("Gagal fetch /forecast_hours (" + res.status + ")");
           return null;
         }
         return await res.json();
+      } catch (e) {
+        showError("Gagal fetch /forecast_hours: " + e);
+        return null;
       }
+    }
 
-      async function fetchMetrics() {
-        const res = await fetch(`${API_BASE}/metrics`);
+    async function fetchMetrics() {
+      try {
+        const res = await fetch("/metrics");
         if (!res.ok) {
-          console.error("Gagal fetch /metrics");
+          showError("Gagal fetch /metrics (" + res.status + ")");
           return null;
         }
         return await res.json();
+      } catch (e) {
+        showError("Gagal fetch /metrics: " + e);
+        return null;
       }
+    }
 
-      function renderChart(data) {
-        const { timestamps, y_actual, y_pred } = data;
-
-        if (forecastChart) {
-          forecastChart.destroy();
-        }
-
-        forecastChart = new Chart(ctx, {
-          type: "line",
-          data: {
-            labels: timestamps,
-            datasets: [
-              {
-                label: "Harga Aktual",
-                data: y_actual,
-                borderWidth: 2,
-                tension: 0.2,
-                pointRadius: 0,
-              },
-              {
-                label: "Prediksi Model",
-                data: y_pred,
-                borderWidth: 2,
-                borderDash: [4, 4],
-                tension: 0.2,
-                pointRadius: 0,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            interaction: {
-              mode: "index",
-              intersect: false,
-            },
-            scales: {
-              x: {
-                ticks: {
-                  maxRotation: 0,
-                  autoSkip: true,
-                  autoSkipPadding: 10,
-                },
-              },
-              y: {
-                beginAtZero: false,
-              },
-            },
-          },
+    function renderForecastCards(data) {
+      if (!data) return;
+      const fmt = (v) =>
+        v.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
         });
-      }
 
-      function renderMetrics(metrics) {
-        if (!metrics) return;
-        document.getElementById("mae").innerText = metrics.MAE.toFixed(4);
-        document.getElementById("rmse").innerText = metrics.RMSE.toFixed(4);
-        document.getElementById("mape").innerText = metrics.MAPE.toFixed(2);
-      }
+      const h1 = data["1h"];
+      const h5 = data["5h"];
+      const h30 = data["30h"];
 
-      async function init() {
-        const horizonSelect = document.getElementById("horizon");
+      document.getElementById("pred-1h").innerText = fmt(h1.pred_stack);
+      document.getElementById("pred-5h").innerText = fmt(h5.pred_stack);
+      document.getElementById("pred-30h").innerText = fmt(h30.pred_stack);
 
-        async function updateAll() {
-          const horizon = horizonSelect.value;
-          const [forecastData, metrics] = await Promise.all([
-            fetchForecast(horizon),
-            fetchMetrics(),
-          ]);
+      document.getElementById(
+        "steps-1h"
+      ).innerText = `(steps: ${h1.steps_used})`;
+      document.getElementById(
+        "steps-5h"
+      ).innerText = `(steps: ${h5.steps_used})`;
+      document.getElementById(
+        "steps-30h"
+      ).innerText = `(steps: ${h30.steps_used})`;
+    }
 
-          if (forecastData) {
-            renderChart(forecastData);
-          }
-          if (metrics) {
-            renderMetrics(metrics);
-          }
-        }
+    function renderMetrics(m) {
+      if (!m) return;
+      document.getElementById("mae").innerText = m.MAE.toFixed(4);
+      document.getElementById("rmse").innerText = m.RMSE.toFixed(4);
+      document.getElementById("mape").innerText = m.MAPE.toFixed(2);
+    }
 
-        horizonSelect.addEventListener("change", updateAll);
+    async function init() {
+      const [fh, metrics] = await Promise.all([
+        fetchForecastHours(),
+        fetchMetrics(),
+      ]);
+      renderForecastCards(fh);
+      renderMetrics(metrics);
+    }
 
-        await updateAll();
-      }
-
-      init();
-    </script>
-  </body>
-</html>
+    init();
+  </script>
+</body>
