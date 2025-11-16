@@ -123,9 +123,10 @@ def get_eval_series(limit: int = 200):
 def get_forecast(
     symbol: str = "ETH/USDT",
     horizons: str = "1,10,24,48,72",
-    forecast_time = datetime.now(timezone.utc),   # waktu sekarang UTC
-
 ):
+    # waktu sekarang UTC, DIBUAT SETIAP REQUEST
+    forecast_time = datetime.now(timezone.utc)
+
     # 1) Parse horizons
     try:
         hours_list = [int(h.strip()) for h in horizons.split(",") if h.strip()]
@@ -163,7 +164,7 @@ def get_forecast(
             model_tcn=model_tcn,
             meta_model=meta_model,
         )
-        
+
         enhanced_results = {}
         for key, val in results.items():
             h = int(key.replace("h",""))
@@ -171,14 +172,12 @@ def get_forecast(
             enhanced_results[key] = {
                 **val,
                 "target_time_utc": target_utc.isoformat(),
-                "target_time_local": target_utc.astimezone().isoformat()
-        }
+                "target_time_local": target_utc.astimezone().isoformat(),
+            }
 
-        
     except Exception as e:
         print("Error saat forecast_hours:", repr(e))
         raise HTTPException(status_code=500, detail=f"Terjadi error saat menghitung forecast: {e}")
-
 
     return {
         "symbol": symbol,
@@ -187,3 +186,4 @@ def get_forecast(
         "generated_at_local": forecast_time.astimezone().isoformat(),
         "results": enhanced_results,
     }
+

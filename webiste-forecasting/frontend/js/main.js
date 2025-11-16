@@ -4,6 +4,7 @@ let priceChart = null;
 let evalChart = null;
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupThemeToggle();
   setupNavigation();
   setupHomePage();
   setupMetricsPage();
@@ -15,11 +16,47 @@ document.addEventListener("DOMContentLoaded", () => {
   loadEvalSeries();
 
   // Tampilkan waktu lokal di halaman
-  document.getElementById("localTime").textContent = new Date().toLocaleString(
-    "id-ID",
-    { timeZone: "Asia/Jakarta" }
-  );
+  const localTimeEl = document.getElementById("localTime");
+  if (localTimeEl) {
+    localTimeEl.textContent = new Date().toLocaleString("id-ID", {
+      timeZone: "Asia/Jakarta",
+    });
+  }
 });
+
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.body.classList.add("dark-theme");
+  } else {
+    document.body.classList.remove("dark-theme");
+  }
+}
+
+function setupThemeToggle() {
+  const toggleBtn = document.getElementById("themeToggle");
+  if (!toggleBtn) return;
+
+  const savedTheme = localStorage.getItem("theme");
+  const prefersDark =
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  const initialTheme = savedTheme || (prefersDark ? "dark" : "light");
+  applyTheme(initialTheme);
+
+  // icon awal: kalau dark → ☀️ (artinya klik untuk terang), kalau light → 🌙
+  toggleBtn.textContent = initialTheme === "dark" ? "☀️" : "🌙";
+
+  toggleBtn.addEventListener("click", () => {
+    const isDark = document.body.classList.contains("dark-theme");
+    const nextTheme = isDark ? "light" : "dark";
+    applyTheme(nextTheme);
+    localStorage.setItem("theme", nextTheme);
+    toggleBtn.textContent = nextTheme === "dark" ? "☀️" : "🌙";
+  });
+}
+
+/* ========== NAVIGATION ========== */
 
 function setupNavigation() {
   const navButtons = document.querySelectorAll(".nav-btn");
