@@ -2,178 +2,131 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <title>Forecast Harga ETH - TCN + LGBM</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        max-width: 900px;
-        margin: 20px auto;
-      }
-      h1,
-      h2 {
-        text-align: center;
-      }
-      .card {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 20px;
-      }
-      label {
-        display: block;
-        margin-bottom: 8px;
-      }
-      input[type="text"] {
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 12px;
-        box-sizing: border-box;
-      }
-      button {
-        padding: 8px 16px;
-        cursor: pointer;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 12px;
-      }
-      th,
-      td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: center;
-      }
-      th {
-        background-color: #f2f2f2;
-      }
-      #status {
-        margin-top: 8px;
-        font-size: 0.9rem;
-        color: #555;
-      }
-    </style>
+    <title>ETH Forecast - TCN + LGBM</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/app.js" defer></script>
   </head>
   <body>
-    <h1>Forecast Harga Ethereum (ETH/USDT)</h1>
+    <div class="layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h1 class="app-title">ETH Forecast</h1>
+          <p class="app-subtitle">TCN + LGBM + Stacking</p>
+        </div>
 
-    <div class="card">
-      <h2>Parameter Forecast</h2>
-      <label>
-        Symbol (pair):
-        <input type="text" id="symbol" value="ETH/USDT" />
-      </label>
-      <label>
-        Horizons (jam, pisahkan dengan koma):
-        <input type="text" id="horizons" value="1,10,24,48,72" />
-      </label>
-      <button id="btnForecast">Hitung Forecast</button>
-      <div id="status"></div>
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-page="home">Home</button>
+          <button class="nav-btn" data-page="metrics">Metrics</button>
+          <button class="nav-btn" data-page="forecast">Forecasting</button>
+        </nav>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main">
+        <!-- HOME -->
+        <section id="page-home" class="page active">
+          <h2>Harga Ethereum</h2>
+          <p class="timezone-info">
+            Waktu grafik menggunakan timestamp UTC dari Binance. (Local time:
+            <span id="localTime"></span>)
+          </p>
+          <p>Pilih rentang waktu (interval 1 jam).</p>
+          <div class="controls">
+            <button class="range-btn primary" data-days="1">1 Hari</button>
+            <button class="range-btn" data-days="7">7 Hari</button>
+            <button class="range-btn" data-days="30">30 Hari</button>
+          </div>
+          <div class="status" id="homeStatus"></div>
+          <canvas id="priceChart" height="120"></canvas>
+        </section>
+
+        <!-- METRICS -->
+        <section id="page-metrics" class="page">
+          <h2>Performa Model</h2>
+          <p>Metrik evaluasi pada data uji.</p>
+          <div class="status" id="metricsStatus"></div>
+          <table id="metricsTable">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>RMSE</th>
+                <th>MSE</th>
+                <th>MAE</th>
+                <th>MAPE</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <h3>Visualisasi Actual vs Prediksi</h3>
+          <p>Menampilkan beberapa titik terakhir dari data uji.</p>
+          <canvas id="evalChart" height="120"></canvas>
+          <div class="status" id="evalStatus"></div>
+        </section>
+
+        <!-- FORECAST -->
+        <section id="page-forecast" class="page">
+          <h2>Forecast Harga ke Depan</h2>
+          <p>Pilih horizon prediksi (maksimal 168 jam / 1 minggu).</p>
+
+          <div class="forecast-group">
+            <div>
+              <label
+                ><input
+                  type="checkbox"
+                  class="preset-horizon"
+                  value="1"
+                  checked
+                />
+                1 jam</label
+              >
+              <label
+                ><input type="checkbox" class="preset-horizon" value="5" /> 5
+                jam</label
+              >
+            </div>
+            <div>
+              <label
+                ><input type="checkbox" class="preset-horizon" value="24" /> 24
+                jam</label
+              >
+              <label
+                ><input type="checkbox" class="preset-horizon" value="72" /> 72
+                jam</label
+              >
+            </div>
+          </div>
+
+          <div class="forecast-group">
+            <label>Custom horizon (jam, max 168):</label>
+            <input
+              type="number"
+              id="customHorizon"
+              min="1"
+              max="168"
+              placeholder="contoh: 12"
+            />
+          </div>
+
+          <button id="btnForecast" class="primary">Hitung Forecast</button>
+          <div class="status" id="forecastStatus"></div>
+
+          <table id="forecastTable">
+            <thead>
+              <tr>
+                <th>Horizon</th>
+                <th>Steps Digunakan</th>
+                <th>Prediksi Close (Stacking)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </main>
     </div>
 
-    <div class="card">
-      <h2>Hasil Forecast</h2>
-      <table id="forecastTable">
-        <thead>
-          <tr>
-            <th>Horizon</th>
-            <th>Steps Digunakan</th>
-            <th>Prediksi Close (Stacking)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- hasil forecast akan masuk di sini -->
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card">
-      <h2>Akurasi Model</h2>
-      <table id="metricsTable">
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>RMSE</th>
-            <th>MSE</th>
-            <th>MAE</th>
-            <th>MAPE</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- metrics akan masuk di sini -->
-        </tbody>
-      </table>
-    </div>
-
-    <script>
-      const API_BASE = "http://localhost:8000";
-
-      async function loadMetrics() {
-        try {
-          const res = await fetch(`${API_BASE}/metrics`);
-          const data = await res.json();
-
-          const tbody = document.querySelector("#metricsTable tbody");
-          tbody.innerHTML = "";
-
-          // data bentuknya: { "LGBM": {RMSE:..., MSE:..., ...}, "TCN": {...}, ... }
-          for (const [modelName, metrics] of Object.entries(data)) {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-            <td>${modelName}</td>
-            <td>${metrics.RMSE.toFixed(4)}</td>
-            <td>${metrics.MSE.toFixed(4)}</td>
-            <td>${metrics.MAE.toFixed(4)}</td>
-            <td>${metrics.MAPE.toFixed(4)}</td>
-          `;
-            tbody.appendChild(tr);
-          }
-        } catch (err) {
-          console.error(err);
-        }
-      }
-
-      async function doForecast() {
-        const symbol = document.getElementById("symbol").value.trim();
-        const horizons = document.getElementById("horizons").value.trim();
-        const statusEl = document.getElementById("status");
-        const tbody = document.querySelector("#forecastTable tbody");
-
-        statusEl.textContent = "Mengambil data dan menghitung forecast...";
-        tbody.innerHTML = "";
-
-        try {
-          const url = `${API_BASE}/forecast?symbol=${encodeURIComponent(
-            symbol
-          )}&horizons=${encodeURIComponent(horizons)}`;
-          const res = await fetch(url);
-          const data = await res.json();
-
-          statusEl.textContent = `Berhasil. Timeframe: ${data.timeframe}`;
-
-          // data.results bentuknya: { "1h": {steps_used:..., pred_stack:...}, ... }
-          for (const [hKey, info] of Object.entries(data.results)) {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-            <td>${hKey}</td>
-            <td>${info.steps_used}</td>
-            <td>${info.pred_stack.toFixed(4)}</td>
-          `;
-            tbody.appendChild(tr);
-          }
-        } catch (err) {
-          console.error(err);
-          statusEl.textContent =
-            "Terjadi error saat memanggil API (cek backend & koneksi).";
-        }
-      }
-
-      document
-        .getElementById("btnForecast")
-        .addEventListener("click", doForecast);
-
-      // load metrics pertama kali saat halaman dibuka
-      loadMetrics();
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/app.js" defer></script>
   </body>
 </html>

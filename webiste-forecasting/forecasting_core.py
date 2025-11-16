@@ -22,35 +22,28 @@ class CONFIG:
     tcn_epochs = 50
     tcn_batch = 32
 
-def fetch_ohlcv_ccxt(symbol, timeframe, start=None, end=None, limit=1000):
+def fetch_ohlcv_ccxt(symbol, timeframe, limit=500):
+    """
+    Versi ringan untuk website:
+    - Abaikan start/end
+    - Ambil hanya 'limit' candle terakhir dari Binance
+    - Cukup untuk membuat window seq_len (168) + buffer
+    """
     ex = ccxt.binance()
-    since = ex.parse8601(start + "T00:00:00Z") if start else None
-    end_ts = ex.parse8601(end + "T00:00:00Z") if end else None
 
-    all_rows = []
-    while True:
-        batch = ex.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit)
-        if not batch:
-            break
+    # ambil data terakhir
+    ohlcv = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
 
-        all_rows.extend(batch)
-        last_ts = batch[-1][0]
+    if not ohlcv:
+        raise ValueError(f"Tidak ada data OHLCV yang diterima untuk {symbol} {timeframe}")
 
-        # update since untuk next loop
-        since = last_ts + 1
-
-        # kalau pakai end, berhenti kalau sudah lewat
-        if end_ts is not None and last_ts >= end_ts:
-            break
-
-        # kalau batch kurang dari limit, artinya sudah mentok data
-        if len(batch) < limit:
-            break
-
-    df = pd.DataFrame(all_rows, columns=["timestamp","open","high","low","close","volume"])
+    df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
     df = df.set_index("timestamp").sort_index()
     return df
+
+
+
 def make_supervised_tabular(df, seq_len, horizon):
     data = df.copy()
     data["return"] = data["close"].pct_change() # menghitung return (persentase perubahan harga)
