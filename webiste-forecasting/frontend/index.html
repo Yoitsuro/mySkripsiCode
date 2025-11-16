@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Forecast Harga ETH - TCN + LGBM</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 20px auto;
+      }
+      h1,
+      h2 {
+        text-align: center;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 12px;
+        box-sizing: border-box;
+      }
+      button {
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      #status {
+        margin-top: 8px;
+        font-size: 0.9rem;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Forecast Harga Ethereum (ETH/USDT)</h1>
+
+    <div class="card">
+      <h2>Parameter Forecast</h2>
+      <label>
+        Symbol (pair):
+        <input type="text" id="symbol" value="ETH/USDT" />
+      </label>
+      <label>
+        Horizons (jam, pisahkan dengan koma):
+        <input type="text" id="horizons" value="1,10,24,48,72" />
+      </label>
+      <button id="btnForecast">Hitung Forecast</button>
+      <div id="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>Hasil Forecast</h2>
+      <table id="forecastTable">
+        <thead>
+          <tr>
+            <th>Horizon</th>
+            <th>Steps Digunakan</th>
+            <th>Prediksi Close (Stacking)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- hasil forecast akan masuk di sini -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Akurasi Model</h2>
+      <table id="metricsTable">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>RMSE</th>
+            <th>MSE</th>
+            <th>MAE</th>
+            <th>MAPE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- metrics akan masuk di sini -->
+        </tbody>
+      </table>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:8000";
+
+      async function loadMetrics() {
+        try {
+          const res = await fetch(`${API_BASE}/metrics`);
+          const data = await res.json();
+
+          const tbody = document.querySelector("#metricsTable tbody");
+          tbody.innerHTML = "";
+
+          // data bentuknya: { "LGBM": {RMSE:..., MSE:..., ...}, "TCN": {...}, ... }
+          for (const [modelName, metrics] of Object.entries(data)) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+            <td>${modelName}</td>
+            <td>${metrics.RMSE.toFixed(4)}</td>
+            <td>${metrics.MSE.toFixed(4)}</td>
+            <td>${metrics.MAE.toFixed(4)}</td>
+            <td>${metrics.MAPE.toFixed(4)}</td>
+          `;
+            tbody.appendChild(tr);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function doForecast() {
+        const symbol = document.getElementById("symbol").value.trim();
+        const horizons = document.getElementById("horizons").value.trim();
+        const statusEl = document.getElementById("status");
+        const tbody = document.querySelector("#forecastTable tbody");
+
+        statusEl.textContent = "Mengambil data dan menghitung forecast...";
+        tbody.innerHTML = "";
+
+        try {
+          const url = `${API_BASE}/forecast?symbol=${encodeURIComponent(
+            symbol
+          )}&horizons=${encodeURIComponent(horizons)}`;
+          const res = await fetch(url);
+          const data = await res.json();
+
+          statusEl.textContent = `Berhasil. Timeframe: ${data.timeframe}`;
+
+          // data.results bentuknya: { "1h": {steps_used:..., pred_stack:...}, ... }
+          for (const [hKey, info] of Object.entries(data.results)) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+            <td>${hKey}</td>
+            <td>${info.steps_used}</td>
+            <td>${info.pred_stack.toFixed(4)}</td>
+          `;
+            tbody.appendChild(tr);
+          }
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent =
+            "Terjadi error saat memanggil API (cek backend & koneksi).";
+        }
+      }
+
+      document
+        .getElementById("btnForecast")
+        .addEventListener("click", doForecast);
+
+      // load metrics pertama kali saat halaman dibuka
+      loadMetrics();
+    </script>
+  </body>
+</html>
